@@ -13,10 +13,7 @@ A python3 streamlit+plotly app to plot `hledger balance` reports:
 # Installation & usage
 
 ```
-python3 -m venv .venv
-source ./.venv/bin/activate
-pip install -r requirements.txt
-streamlit run hledger_lit.py
+uv run streamlit run hledger_lit.py
 ```
 
 This should open the app page in your browser. Defaults should be sensible enough for you to press "Generate Visualizations" and see the graphs immediately.
