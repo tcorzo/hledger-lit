@@ -10,23 +10,11 @@ from datetime import date
 import plotly.graph_objects as go
 import streamlit as st
 
-from hledger_lit.charts import (
-    expenses_treemap_plot,
-    historical_balances_plot,
-    sankey_plot,
-)
-from hledger_lit.config import (
-    load_config,
-    reset_config,
-    save_config,
-)
-from hledger_lit.hledger import (
-    HledgerError,
-    read_current_balances,
-    run_historical_command,
-)
+from hledger_lit.charts import ChartBuilder
+from hledger_lit.config import ConfigManager
+from hledger_lit.hledger import HledgerError, HledgerRunner
 from hledger_lit.models import AppConfig
-from hledger_lit.transforms import to_sankey_data
+from hledger_lit.transforms import DataTransformer
 
 
 def render_chart(
@@ -68,8 +56,14 @@ st.set_page_config(page_title="'HLedger is Lit!' Visualizer", layout="wide")
 st.title("'HLedger is Lit!' Visualizer")
 st.markdown("Generate graphs from hledger balance reports")
 
+# Instantiate service objects
+config_manager = ConfigManager()
+hledger = HledgerRunner()
+charts = ChartBuilder()
+transformer = DataTransformer()
+
 # Load persisted config (merged with defaults)
-cfg = load_config()
+cfg = config_manager.load()
 
 # ---------------------------------------------------------------------------
 # Sidebar
@@ -185,11 +179,11 @@ if save_btn:
         income_expenses_cmd=income_expenses_cmd,
         all_flows_cmd=all_flows_cmd,
     )
-    path = save_config(new_cfg)
+    path = config_manager.save(new_cfg)
     st.success(f"Configuration saved to {path}")
 
 if reset_btn:
-    reset_config()
+    config_manager.reset()
     st.success(
         "Configuration reset to defaults. Please refresh the page to see the changes."
     )
@@ -223,8 +217,8 @@ cmd_vars: dict[str, object] = {
 render_chart(
     "Historical Account Balances",
     "historical_fig",
-    lambda: historical_balances_plot(
-        run_historical_command(
+    lambda: charts.historical_balances_plot(
+        hledger.run_historical_command(
             historical_cmd.format(**cmd_vars),
             commodity,
             asset_regex,
@@ -238,8 +232,8 @@ render_chart(
 render_chart(
     "Expenses Treemap",
     "expenses_fig",
-    lambda: expenses_treemap_plot(
-        read_current_balances(expenses_cmd.format(**cmd_vars))
+    lambda: charts.expenses_treemap_plot(
+        hledger.read_current_balances(expenses_cmd.format(**cmd_vars))
     ),
 )
 
@@ -247,9 +241,9 @@ render_chart(
 render_chart(
     "Income & Expenses Flows",
     "income_expenses_fig",
-    lambda: sankey_plot(
-        to_sankey_data(
-            read_current_balances(income_expenses_cmd.format(**cmd_vars)),
+    lambda: charts.sankey_plot(
+        transformer.to_sankey_data(
+            hledger.read_current_balances(income_expenses_cmd.format(**cmd_vars)),
             income_regex,
             expense_regex,
             asset_regex,
@@ -262,9 +256,9 @@ render_chart(
 render_chart(
     "All Cash Flows",
     "all_balances_fig",
-    lambda: sankey_plot(
-        to_sankey_data(
-            read_current_balances(all_flows_cmd.format(**cmd_vars)),
+    lambda: charts.sankey_plot(
+        transformer.to_sankey_data(
+            hledger.read_current_balances(all_flows_cmd.format(**cmd_vars)),
             income_regex,
             expense_regex,
             asset_regex,
