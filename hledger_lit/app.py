@@ -44,7 +44,7 @@ def render_chart(
             st.exception(e)
 
     if st.session_state.get(session_key) is not None:
-        st.plotly_chart(st.session_state[session_key], use_container_width=True)
+        st.plotly_chart(st.session_state[session_key], width="stretch")
 
     st.divider()
 
