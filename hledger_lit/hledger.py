@@ -46,7 +46,7 @@ class HledgerRunner:
         """Run a historical-balance hledger command and return structured data."""
         data = self.run_command(command)
 
-        # Extract dates from prDates – use the start date of each period
+        # Extract dates from prDates - use the start date of each period
         dates: list[str] = [period[0]["contents"] for period in data["prDates"]]
         num_periods = len(dates)
 

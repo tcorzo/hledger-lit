@@ -98,7 +98,7 @@ class DataTransformer:
                 if parent_acc not in accounts:
                     raise MissingParentAccountError(
                         f"For account {account_name}, parent account {parent_acc} "
-                        "not found – have you forgotten --no-elide?"
+                        "not found - have you forgotten --no-elide?"
                     )
 
             # Income accounts flow "up" (towards the pot)

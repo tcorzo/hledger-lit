@@ -1,4 +1,4 @@
-"""Plotly figure builders – one method per chart type."""
+"""Plotly figure builders - one method per chart type."""
 
 from __future__ import annotations
 

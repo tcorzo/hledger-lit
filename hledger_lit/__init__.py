@@ -1,1 +1,1 @@
-"""hledger-lit – interactive Streamlit visualizer for hledger balance reports."""
+"""hledger-lit - interactive Streamlit visualizer for hledger balance reports."""
