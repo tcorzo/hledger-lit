@@ -1,8 +1,11 @@
 [project]
 name = "hledger-lit"
-version = "0.1.0"
+version = "0.2.0"
 description = "A streamlit+plotly app to plot hledger balance reports"
 readme = "README.md"
 license = { text = "BSD-3-Clause" }
 requires-python = ">=3.10"
 dependencies = ["plotly", "streamlit"]
+
+[tool.setuptools.packages.find]
+include = ["hledger_lit*"]
