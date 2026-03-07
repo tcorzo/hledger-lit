@@ -7,5 +7,11 @@ license = { text = "BSD-3-Clause" }
 requires-python = ">=3.10"
 dependencies = ["plotly", "streamlit"]
 
+[project.optional-dependencies]
+dev = ["pytest"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
 [tool.setuptools.packages.find]
 include = ["hledger_lit*"]
