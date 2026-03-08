@@ -18,6 +18,20 @@ class HledgerError(Exception):
 class HledgerRunner:
     """Executes hledger CLI commands and returns structured data."""
 
+    def get_commodities(self, filename: str) -> list[str]:
+        """Return the list of commodities declared/used in the journal."""
+        result = subprocess.run(
+            shlex.split(f"hledger -f {filename} commodities"),
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if result.returncode != 0:
+            raise HledgerError(
+                f"hledger exited with code {result.returncode}:\n{result.stderr}"
+            )
+        return [line for line in result.stdout.splitlines() if line.strip()]
+
     def run_command(self, command: str) -> Any:
         """Execute an hledger command string and return the parsed JSON output.
 

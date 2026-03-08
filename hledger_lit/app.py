@@ -77,11 +77,28 @@ with st.sidebar:
         help="Path to your hledger journal file, defaults to $LEDGER_FILE",
     )
 
-    commodity = st.text_input(
-        "Commodity",
-        value=cfg.commodity,
-        help="Commodity to convert all values to (via -value=then,{commodity})",
-    )
+    try:
+        commodities = hledger.get_commodities(filename)
+    except Exception:
+        commodities = []
+    if cfg.commodity and cfg.commodity not in commodities:
+        commodities.insert(0, cfg.commodity)
+    if commodities:
+        default_index = (
+            commodities.index(cfg.commodity) if cfg.commodity in commodities else 0
+        )
+        commodity = st.selectbox(
+            "Commodity",
+            options=commodities,
+            index=default_index,
+            help="Commodity to convert all values to (via -value=then,{commodity})",
+        )
+    else:
+        commodity = st.text_input(
+            "Commodity",
+            value=cfg.commodity,
+            help="Commodity to convert all values to (via -value=then,{commodity})",
+        )
 
     # Date range
     current_year = date.today().year
