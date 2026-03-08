@@ -240,7 +240,8 @@ chart_specs: list[ChartSpec] = [
                 commodity,
                 asset_regex,
                 liability_regex,
-            )
+            ),
+            commodity,
         ),
         "💡 Tip: Click legend items to show/hide lines, double-click to isolate a single line",
     ),
@@ -248,7 +249,8 @@ chart_specs: list[ChartSpec] = [
         "Expenses Treemap",
         "expenses_fig",
         lambda: charts.expenses_treemap_plot(
-            hledger.read_current_balances(expenses_cmd.format(**cmd_vars))
+            hledger.read_current_balances(expenses_cmd.format(**cmd_vars)),
+            commodity,
         ),
         None,
     ),
@@ -262,7 +264,8 @@ chart_specs: list[ChartSpec] = [
                 expense_regex,
                 asset_regex,
                 liability_regex,
-            )
+            ),
+            commodity,
         ),
         None,
     ),
@@ -276,7 +279,8 @@ chart_specs: list[ChartSpec] = [
                 expense_regex,
                 asset_regex,
                 liability_regex,
-            )
+            ),
+            commodity,
         ),
         None,
     ),
@@ -287,7 +291,8 @@ chart_specs: list[ChartSpec] = [
             hledger.run_periodic_command(
                 daily_expenses_cmd.format(**cmd_vars),
                 commodity,
-            )
+            ),
+            commodity,
         ),
         "💡 Tip: Stacked bar chart of daily spending by expense category (depth 2)",
     ),
