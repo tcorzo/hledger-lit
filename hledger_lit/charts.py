@@ -62,6 +62,29 @@ class ChartBuilder:
         return fig
 
     @staticmethod
+    def daily_expenses_plot(data: HistoricalData) -> go.Figure:
+        """Stacked bar chart of daily expenses by category."""
+        fig = go.Figure()
+
+        for account_name in sorted(data.balances.keys()):
+            fig.add_trace(
+                go.Bar(
+                    x=data.dates,
+                    y=data.balances[account_name],
+                    name=account_name,
+                )
+            )
+
+        fig.update_layout(
+            barmode="stack",
+            title="Daily Expenses",
+            xaxis_title="Date",
+            yaxis_title="Amount",
+            hovermode="x unified",
+        )
+        return fig
+
+    @staticmethod
     def sankey_plot(sankey_data: list[SankeyLink]) -> go.Figure:
         """Sankey diagram from a list of directed links."""
         # Sort by (target, source) to keep related accounts together

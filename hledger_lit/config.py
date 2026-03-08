@@ -43,6 +43,12 @@ class ConfigManager:
         "--no-total --tree --no-elide -O json "
         "-b {start_date} -e {end_date}"
     )
+    DEFAULT_DAILY_EXPENSES_CMD = (
+        "hledger -f {filename} balance {expense_regex} not:tag:clopen "
+        "--period daily --depth 2 "
+        "--cost --value=then,{commodity} --infer-value -O json "
+        "-b {start_date} -e {end_date}"
+    )
 
     def __init__(self) -> None:
         self._config_path = self._resolve_config_path()
@@ -103,6 +109,9 @@ class ConfigManager:
             all_flows_cmd=self._get(
                 ini, "commands", "all_flows", self.DEFAULT_ALL_FLOWS_CMD
             ),
+            daily_expenses_cmd=self._get(
+                ini, "commands", "daily_expenses", self.DEFAULT_DAILY_EXPENSES_CMD
+            ),
         )
 
     def save(self, cfg: AppConfig) -> Path:
@@ -124,6 +133,7 @@ class ConfigManager:
             "expenses_treemap": cfg.expenses_cmd,
             "income_expenses": cfg.income_expenses_cmd,
             "all_flows": cfg.all_flows_cmd,
+            "daily_expenses": cfg.daily_expenses_cmd,
         }
 
         with open(self._config_path, "w", encoding="utf-8") as fh:

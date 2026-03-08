@@ -72,6 +72,30 @@ class HledgerRunner:
         balances["net_worth"] = net_worth
         return HistoricalData(dates=dates, balances=balances)
 
+    def run_periodic_command(
+        self,
+        command: str,
+        commodity: str,
+    ) -> HistoricalData:
+        """Run a periodic-balance hledger command and return structured data.
+
+        Unlike ``run_historical_command`` this does not compute net worth —
+        it simply returns each account's per-period change.
+        """
+        data = self.run_command(command)
+
+        dates: list[str] = [period[0]["contents"] for period in data["prDates"]]
+        balances: dict[str, list[float]] = {}
+
+        for row in data["prRows"]:
+            account_name: str = row["prrName"]
+            account_balances = DataTransformer.extract_period_balances(
+                row["prrAmounts"], commodity
+            )
+            balances[account_name] = account_balances
+
+        return HistoricalData(dates=dates, balances=balances)
+
     def read_current_balances(self, command: str) -> list[AccountBalance]:
         """Execute a balance command and return ``(account, balance)`` pairs."""
         data = self.run_command(command)

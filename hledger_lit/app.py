@@ -163,6 +163,14 @@ with st.sidebar:
             key="all_flows_cmd_sidebar",
         )
 
+    with st.expander("Daily Expenses Command", expanded=False):
+        daily_expenses_cmd = st.text_area(
+            "HLedger Command",
+            value=cfg.daily_expenses_cmd,
+            height=100,
+            key="daily_expenses_cmd_sidebar",
+        )
+
 # ---------------------------------------------------------------------------
 # Button handlers
 # ---------------------------------------------------------------------------
@@ -178,6 +186,7 @@ if save_btn:
         expenses_cmd=expenses_cmd,
         income_expenses_cmd=income_expenses_cmd,
         all_flows_cmd=all_flows_cmd,
+        daily_expenses_cmd=daily_expenses_cmd,
     )
     path = config_manager.save(new_cfg)
     st.success(f"Configuration saved to {path}")
@@ -265,4 +274,17 @@ render_chart(
             liability_regex,
         )
     ),
+)
+
+# 5. Daily Expenses
+render_chart(
+    "Daily Expenses",
+    "daily_expenses_fig",
+    lambda: charts.daily_expenses_plot(
+        hledger.run_periodic_command(
+            daily_expenses_cmd.format(**cmd_vars),
+            commodity,
+        )
+    ),
+    tip="💡 Tip: Stacked bar chart of daily spending by expense category (depth 2)",
 )

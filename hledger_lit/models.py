@@ -44,3 +44,4 @@ class AppConfig:
     expenses_cmd: str
     income_expenses_cmd: str
     all_flows_cmd: str
+    daily_expenses_cmd: str
