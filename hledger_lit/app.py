@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import subprocess
 from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import date
 
 import plotly.graph_objects as go
@@ -17,34 +18,22 @@ from hledger_lit.models import AppConfig
 from hledger_lit.transforms import DataTransformer
 
 
-def render_chart(
+def display_chart(
     label: str,
     session_key: str,
-    generate_fn: Callable[[], go.Figure],
     *,
     tip: str | None = None,
 ) -> None:
-    """Render a generate-button → spinner → plotly-chart section."""
+    """Display a previously-generated chart from session state."""
     st.header(label)
     if tip:
         st.caption(tip)
 
-    if st.button(f"Generate {label}", key=f"gen_{session_key}"):
-        try:
-            with st.spinner(f"Generating {label}..."):
-                st.session_state[session_key] = generate_fn()
-        except HledgerError as e:
-            st.error(f"Error running hledger command:\n{e}")
-        except subprocess.CalledProcessError as e:
-            st.error(f"Error running hledger command: {e}")
-        except json.JSONDecodeError as e:
-            st.error(f"Error parsing JSON output: {e}")
-        except Exception as e:
-            st.error(f"Error: {e}")
-            st.exception(e)
-
-    if st.session_state.get(session_key) is not None:
-        st.plotly_chart(st.session_state[session_key], width="stretch")
+    result = st.session_state.get(session_key)
+    if isinstance(result, Exception):
+        st.error(f"Error generating {label}: {result}")
+    elif result is not None:
+        st.plotly_chart(result, width="stretch")
 
     st.divider()
 
@@ -236,72 +225,109 @@ cmd_vars: dict[str, object] = {
 }
 
 # ---------------------------------------------------------------------------
-# Charts
+# Charts — generate all concurrently, re-run when config changes
 # ---------------------------------------------------------------------------
 
-# 1. Historical Account Balances
-render_chart(
-    "Historical Account Balances",
-    "historical_fig",
-    lambda: charts.historical_balances_plot(
-        hledger.run_historical_command(
-            historical_cmd.format(**cmd_vars),
-            commodity,
-            asset_regex,
-            liability_regex,
-        )
+ChartSpec = tuple[str, str, Callable[[], go.Figure], str | None]
+
+chart_specs: list[ChartSpec] = [
+    (
+        "Historical Account Balances",
+        "historical_fig",
+        lambda: charts.historical_balances_plot(
+            hledger.run_historical_command(
+                historical_cmd.format(**cmd_vars),
+                commodity,
+                asset_regex,
+                liability_regex,
+            )
+        ),
+        "💡 Tip: Click legend items to show/hide lines, double-click to isolate a single line",
     ),
-    tip="💡 Tip: Click legend items to show/hide lines, double-click to isolate a single line",
+    (
+        "Expenses Treemap",
+        "expenses_fig",
+        lambda: charts.expenses_treemap_plot(
+            hledger.read_current_balances(expenses_cmd.format(**cmd_vars))
+        ),
+        None,
+    ),
+    (
+        "Income & Expenses Flows",
+        "income_expenses_fig",
+        lambda: charts.sankey_plot(
+            transformer.to_sankey_data(
+                hledger.read_current_balances(income_expenses_cmd.format(**cmd_vars)),
+                income_regex,
+                expense_regex,
+                asset_regex,
+                liability_regex,
+            )
+        ),
+        None,
+    ),
+    (
+        "All Cash Flows",
+        "all_balances_fig",
+        lambda: charts.sankey_plot(
+            transformer.to_sankey_data(
+                hledger.read_current_balances(all_flows_cmd.format(**cmd_vars)),
+                income_regex,
+                expense_regex,
+                asset_regex,
+                liability_regex,
+            )
+        ),
+        None,
+    ),
+    (
+        "Daily Expenses",
+        "daily_expenses_fig",
+        lambda: charts.daily_expenses_plot(
+            hledger.run_periodic_command(
+                daily_expenses_cmd.format(**cmd_vars),
+                commodity,
+            )
+        ),
+        "💡 Tip: Stacked bar chart of daily spending by expense category (depth 2)",
+    ),
+]
+
+# Fingerprint current config so we only regenerate when something changes
+_config_fingerprint = (
+    filename,
+    commodity,
+    str(start_date),
+    str(end_date),
+    income_regex,
+    expense_regex,
+    asset_regex,
+    liability_regex,
+    historical_cmd,
+    expenses_cmd,
+    income_expenses_cmd,
+    all_flows_cmd,
+    daily_expenses_cmd,
 )
 
-# 2. Expenses Treemap
-render_chart(
-    "Expenses Treemap",
-    "expenses_fig",
-    lambda: charts.expenses_treemap_plot(
-        hledger.read_current_balances(expenses_cmd.format(**cmd_vars))
-    ),
-)
+if st.session_state.get("_config_fingerprint") != _config_fingerprint:
+    with st.spinner("Generating all charts..."):
+        with ThreadPoolExecutor() as executor:
+            futures = {
+                executor.submit(gen_fn): (label, key)
+                for label, key, gen_fn, _tip in chart_specs
+            }
+            for future in as_completed(futures):
+                label, key = futures[future]
+                try:
+                    st.session_state[key] = future.result()
+                except (HledgerError, subprocess.CalledProcessError) as exc:
+                    st.session_state[key] = exc
+                except json.JSONDecodeError as exc:
+                    st.session_state[key] = exc
+                except Exception as exc:
+                    st.session_state[key] = exc
+    st.session_state["_config_fingerprint"] = _config_fingerprint
 
-# 3. Income & Expenses Flows
-render_chart(
-    "Income & Expenses Flows",
-    "income_expenses_fig",
-    lambda: charts.sankey_plot(
-        transformer.to_sankey_data(
-            hledger.read_current_balances(income_expenses_cmd.format(**cmd_vars)),
-            income_regex,
-            expense_regex,
-            asset_regex,
-            liability_regex,
-        )
-    ),
-)
-
-# 4. All Cash Flows
-render_chart(
-    "All Cash Flows",
-    "all_balances_fig",
-    lambda: charts.sankey_plot(
-        transformer.to_sankey_data(
-            hledger.read_current_balances(all_flows_cmd.format(**cmd_vars)),
-            income_regex,
-            expense_regex,
-            asset_regex,
-            liability_regex,
-        )
-    ),
-)
-
-# 5. Daily Expenses
-render_chart(
-    "Daily Expenses",
-    "daily_expenses_fig",
-    lambda: charts.daily_expenses_plot(
-        hledger.run_periodic_command(
-            daily_expenses_cmd.format(**cmd_vars),
-            commodity,
-        )
-    ),
-    tip="💡 Tip: Stacked bar chart of daily spending by expense category (depth 2)",
-)
+for label, key, _gen_fn, tip in chart_specs:
+    display_chart(label, key, tip=tip)
