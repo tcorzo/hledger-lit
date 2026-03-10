@@ -55,11 +55,11 @@ class ChartBuilder:
 
     @staticmethod
     def expenses_treemap_plot(
-        balances: list[AccountBalance], commodity: str = ""
+        balances: list[AccountBalance], _commodity: str = ""
     ) -> go.Figure:
         """Treemap of expense accounts."""
         labels = [ab.name for ab in balances]
-        values = [round(ab.amount, 2) for ab in balances]
+        values = [ab.amount for ab in balances]
         parents = [DataTransformer.parent(ab.name) for ab in balances]
 
         fig = go.Figure(
@@ -68,10 +68,8 @@ class ChartBuilder:
                 parents=parents,
                 values=values,
                 branchvalues="total",
-                texttemplate="%{label}<br>%{value:,.2f} " + commodity,
-                hovertemplate="%{label}<br>%{value:,.2f} "
-                + commodity
-                + "<extra></extra>",
+                textinfo="label+value+percent parent+percent entry",
+                root_color="lightgrey",
             )
         )
         return fig
@@ -81,13 +79,27 @@ class ChartBuilder:
         """Stacked bar chart of daily expenses by category."""
         fig = go.Figure()
 
-        for account_name in sorted(data.balances.keys()):
+        # Compute daily totals for percentage calculation
+        num_dates = len(data.dates)
+        daily_totals = [0.0] * num_dates
+        sorted_accounts = sorted(data.balances.keys())
+        for account_name in sorted_accounts:
+            for i, v in enumerate(data.balances[account_name]):
+                daily_totals[i] += v
+
+        for account_name in sorted_accounts:
+            rounded = [round(v, 2) for v in data.balances[account_name]]
+            pcts = [
+                f"{v / daily_totals[i] * 100:.1f}%" if daily_totals[i] else "0.0%"
+                for i, v in enumerate(data.balances[account_name])
+            ]
             fig.add_trace(
                 go.Bar(
                     x=data.dates,
-                    y=[round(v, 2) for v in data.balances[account_name]],
+                    y=rounded,
                     name=account_name,
-                    hovertemplate=f"%{{y:,.2f}} {commodity}",
+                    customdata=pcts,
+                    hovertemplate=f"%{{y:,.2f}} {commodity} (%{{customdata}})",
                 )
             )
 
@@ -115,6 +127,11 @@ class ChartBuilder:
             )
         )
 
+        # Outflow per source node for percentage calculation
+        source_totals: dict[str, float] = {}
+        for lk in sorted_links:
+            source_totals[lk.source] = source_totals.get(lk.source, 0.0) + lk.value
+
         fig = go.Figure(
             data=[
                 go.Sankey(
@@ -131,7 +148,12 @@ class ChartBuilder:
                         source=[nodes.index(lk.source) for lk in sorted_links],
                         target=[nodes.index(lk.target) for lk in sorted_links],
                         value=[round(lk.value, 2) for lk in sorted_links],
-                        customdata=[commodity] * len(sorted_links),
+                        customdata=[
+                            f"{commodity} ({lk.value / source_totals[lk.source] * 100:.1f}%)"
+                            if source_totals.get(lk.source)
+                            else commodity
+                            for lk in sorted_links
+                        ],
                         hovertemplate="%{source.label} → %{target.label}<br>%{value:,.2f} %{customdata}<extra></extra>",
                     ),
                 )
