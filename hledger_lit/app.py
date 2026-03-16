@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import html
 import json
 import subprocess
 from collections.abc import Callable
@@ -347,9 +348,51 @@ def _generate_all_charts() -> None:
     st.session_state["_config_fingerprint"] = _config_fingerprint
 
 
+def _build_html_report(figures: list[tuple[str, go.Figure]]) -> str:
+    """Build a single self-contained HTML report from a list of (label, figure) pairs."""
+    sections: list[str] = []
+    for label, fig in figures:
+        chart_html = fig.to_html(full_html=False, include_plotlyjs=False)
+        sections.append(
+            f"<section><h2>{html.escape(label)}</h2>{chart_html}<hr></section>"
+        )
+    body = "\n".join(sections)
+    title = html.escape(f"HLedger Report — {start_date} to {end_date}")
+    return (
+        "<!DOCTYPE html>\n"
+        f"<html><head><meta charset='utf-8'><title>{title}</title>"
+        '<script src="https://cdn.plot.ly/plotly-3.4.0.min.js" charset="utf-8"></script>'
+        "<style>"
+        "body{font-family:system-ui,sans-serif;max-width:1200px;margin:0 auto;padding:2rem}"
+        "h1{color:#333}h2{color:#555}hr{border:none;border-top:1px solid #ddd;margin:2rem 0}"
+        "</style>"
+        f"</head><body><h1>{title}</h1>{body}</body></html>"
+    )
+
+
+@st.fragment
+def _download_report() -> None:
+    figures = [
+        (label, st.session_state[key])
+        for label, key, _, _ in chart_specs
+        if isinstance(st.session_state.get(key), go.Figure)
+    ]
+    st.download_button(
+        "Export Report",
+        data=_build_html_report(figures) if figures else "",
+        file_name="hledger-report.html",
+        mime="text/html",
+        icon=":material/download:",
+        disabled=not figures,
+        use_container_width=True,
+    )
+
+
 if _should_render:
     with st.spinner("Generating all charts...", show_time=True):
         _generate_all_charts()
+
+_download_report()
 
 for label, key, _gen_fn, tip in chart_specs:
     display_chart(label, key, tip=tip)
