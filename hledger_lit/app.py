@@ -352,7 +352,9 @@ def _build_html_report(figures: list[tuple[str, go.Figure]]) -> str:
     """Build a single self-contained HTML report from a list of (label, figure) pairs."""
     sections: list[str] = []
     for label, fig in figures:
-        chart_html = fig.to_html(full_html=False, include_plotlyjs=False)
+        export_fig = go.Figure(fig)
+        export_fig.update_layout(template="plotly_dark")
+        chart_html = export_fig.to_html(full_html=False, include_plotlyjs=False)
         sections.append(
             f"<section><h2>{html.escape(label)}</h2>{chart_html}<hr></section>"
         )
