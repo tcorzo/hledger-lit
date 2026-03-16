@@ -102,8 +102,11 @@ with st.sidebar:
         help="End date for the report (hledger -e flag)",
     )
 
-    save_btn = st.button("Save Config")
-    reset_btn = st.button("Reset to Defaults")
+    col_save, col_reset = st.columns(2)
+    with col_save:
+        save_btn = st.button("Save Config", use_container_width=True)
+    with col_reset:
+        reset_btn = st.button("Reset to Defaults", use_container_width=True)
 
     # ---- Account Regex Patterns ----
     st.subheader("Account Regex Patterns")
@@ -315,24 +318,38 @@ _config_fingerprint = (
     daily_expenses_cmd,
 )
 
-if st.session_state.get("_config_fingerprint") != _config_fingerprint:
-    with st.spinner("Generating all charts..."):
-        with ThreadPoolExecutor() as executor:
-            futures = {
-                executor.submit(gen_fn): (label, key)
-                for label, key, gen_fn, _tip in chart_specs
-            }
-            for future in as_completed(futures):
-                label, key = futures[future]
-                try:
-                    st.session_state[key] = future.result()
-                except (HledgerError, subprocess.CalledProcessError) as exc:
-                    st.session_state[key] = exc
-                except json.JSONDecodeError as exc:
-                    st.session_state[key] = exc
-                except Exception as exc:
-                    st.session_state[key] = exc
+_config_changed = st.session_state.get("_config_fingerprint") != _config_fingerprint
+render_btn = st.button(
+    "Render" if not _config_changed else "Render  :material/autorenew:",
+    type="primary",
+    use_container_width=True,
+)
+_should_render = render_btn or _config_changed
+
+
+def _generate_all_charts() -> None:
+    """Run all chart generators concurrently and stash results in session state."""
+    with ThreadPoolExecutor() as executor:
+        futures = {
+            executor.submit(gen_fn): (label, key)
+            for label, key, gen_fn, _tip in chart_specs
+        }
+        for future in as_completed(futures):
+            label, key = futures[future]
+            try:
+                st.session_state[key] = future.result()
+            except (HledgerError, subprocess.CalledProcessError) as exc:
+                st.session_state[key] = exc
+            except json.JSONDecodeError as exc:
+                st.session_state[key] = exc
+            except Exception as exc:
+                st.session_state[key] = exc
     st.session_state["_config_fingerprint"] = _config_fingerprint
+
+
+if _should_render:
+    with st.spinner("Generating all charts...", show_time=True):
+        _generate_all_charts()
 
 for label, key, _gen_fn, tip in chart_specs:
     display_chart(label, key, tip=tip)
